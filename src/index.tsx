@@ -42,7 +42,7 @@ const Content: VFC<{ serverAPI: ServerAPI }> = ({serverAPI}) => {
       <PanelSectionRow>
         <ButtonItem
           layout="below"
-          onClick={(e) =>
+          onClick={(e: Event) =>
             showContextMenu(
               <Menu label="Menu" cancelText="CAAAANCEL" onCancel={() => {}}>
                 <MenuItem onSelected={() => {}}>Item #1</MenuItem>
@@ -90,16 +90,61 @@ const DeckyPluginRouterTest: VFC = () => {
 };
 
 export default definePlugin((serverApi: ServerAPI) => {
-  serverApi.routerHook.addRoute("/decky-plugin-test", DeckyPluginRouterTest, {
-    exact: true,
-  });
+
+    let delay: number = 10;
+
+    const fetchToasts = (serverAPI: ServerAPI) => {
+        serverAPI.callPluginMethod(
+            "get_toasts",
+            {}
+        )
+        .then(
+            response => {
+                console.log(
+                    '[get_toasts]',
+                    response,
+                    (response.result as any).body
+                )
+                return JSON.parse(response.result as string)
+            }
+        ).then(
+            data => {
+                delay = 10;
+                for (let entry of data) {
+                    console.log(
+                        '[get_toasts]',
+                        `Got toast: ${entry}`
+                    )
+                    serverAPI.toaster.toast(entry)
+                }
+                timeout = setTimeout(() => {
+                    fetchToasts(serverApi)
+                }, delay);
+            }
+        ).catch(
+            error => {
+                delay = delay * 2;
+                console.error(
+                    '[get_toasts]',
+                    error
+                )
+                timeout = setTimeout(() => {
+                    fetchToasts(serverApi)
+                }, delay);
+            }
+        );
+    }
+
+    let timeout = setTimeout(() => {
+        fetchToasts(serverApi)
+    }, delay);
 
   return {
-    title: <div className={staticClasses.Title}>Example Plugin</div>,
+    title: <div className={staticClasses.Title}>Custom notifications</div>,
     content: <Content serverAPI={serverApi} />,
     icon: <FaShip />,
     onDismount() {
-      serverApi.routerHook.removeRoute("/decky-plugin-test");
-    },
+        clearTimeout(timeout)
+    }
   };
 });
